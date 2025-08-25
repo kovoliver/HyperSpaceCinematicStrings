@@ -1,0 +1,869 @@
+on init
+    make_perfview
+    set_ui_height_px(350)
+    set_ui_width_px(700)
+
+    {VARIABLES}
+    declare $i := 0
+    declare $noteId
+    declare $lastTime
+    declare $noteOn
+    declare ~phase
+    declare !lfoSpeeds[11]
+    declare $depthPercentage
+    declare ~cutoff
+    declare ~lfoValue
+    declare $maximumDepth
+    declare $currentDepth
+    declare ~periodMs
+    declare ~pi := 3.14159265
+    declare $delta
+    declare ~msPerBeat
+    declare ~bpm
+    declare ~lfoDepth
+    declare $now
+    declare $lfoShape := 0
+    declare $env_idx
+    declare $grp_idx
+    declare $counter
+    declare $scaledCutof
+    declare $iterations := 0
+    declare $bpmMs := 0
+    declare $filterStepCounter := 0
+    declare $scaledCutoff
+    declare $async_id
+    !lfoSpeeds[0] := "4/1"
+    !lfoSpeeds[1] := "2/1"
+    !lfoSpeeds[2] := "1/1"
+    !lfoSpeeds[3] := "1/2"
+    !lfoSpeeds[4] := "1/4"
+    !lfoSpeeds[5] := "1/8"
+    !lfoSpeeds[6] := "1/16"
+    !lfoSpeeds[7] := "1/32"
+    !lfoSpeeds[8] := "1/1.5"
+    !lfoSpeeds[9] := "1/3"
+    !lfoSpeeds[10] := "1/6"
+
+    declare ~pitchPhase
+    declare ~pitchValue
+    declare $pitchNoteId
+    declare $pitchLastTime
+    declare $pitchNow
+    declare $pitchDelta
+    declare ~pitchPeriodMs
+    declare ~pitchBpm
+    declare ~pitchMsPerBeat
+    declare $pitchNoteOn
+    declare $pitchLFOShape
+    declare ~volPhase
+    declare ~volValue
+    declare $volLFOShape := 0
+    declare $volDelta
+    declare $volLastTime
+    declare $volNow
+    declare ~volPeriodMs
+    declare ~volMsPerBeat
+    declare ~volBpm
+    declare ~volDepth
+    {VARIABLES}
+
+    declare ui_menu $menuPresets
+    move_control_px($menuPresets, 50, 40)
+    declare $count := 0
+
+    while ($count < $NUM_GROUPS)
+        add_menu_item($menuPresets, "Preset: " & group_name($count), $count)
+        $count := $count + 1
+    end while
+
+    declare ui_button $btnMono
+    set_text($btnMono, "MONO")
+    move_control_px($btnMono, 150, 40)
+    set_control_par(get_ui_id($btnMono), $CONTROL_PAR_WIDTH, 70)
+    set_control_par(get_ui_id($btnMono), $CONTROL_PAR_TEXT_ALIGNMENT, 1)
+    make_persistent($btnMono)
+
+    { ADSR }
+    $grp_idx := 0
+    {$env_idx := find_mod($grp_idx, "ENV_VOL")}
+    $env_idx := 0
+
+    declare ui_knob $knobAttack(0, 1000000, 1)
+    set_text($knobAttack, "Attack")
+    set_knob_unit($knobAttack, $KNOB_UNIT_MS)
+    $knobAttack := get_engine_par($ENGINE_PAR_ATTACK, $grp_idx, $env_idx, -1)
+    move_control_px($knobAttack, 50, 90)
+    set_knob_label($knobAttack, get_engine_par_disp($ENGINE_PAR_ATTACK, $grp_idx, $env_idx, -1))
+
+    declare ui_knob $knobDecay(0, 1000000, 1)
+    set_text($knobDecay, "Decay")
+    set_knob_unit($knobDecay, $KNOB_UNIT_MS)
+    $knobDecay := get_engine_par($ENGINE_PAR_DECAY, $grp_idx, $env_idx, -1)
+    move_control_px($knobDecay, 150, 90)
+    set_knob_label($knobDecay, get_engine_par_disp($ENGINE_PAR_DECAY, $grp_idx, $env_idx, -1))
+
+    declare ui_knob $knobSustain(0, 1000000, 1)
+    set_text($knobSustain, "Sustain")
+    set_knob_unit($knobSustain, $KNOB_UNIT_MS)
+    $knobSustain := get_engine_par($ENGINE_PAR_SUSTAIN, $grp_idx, $env_idx, -1)
+    move_control_px($knobSustain, 250, 90)
+    set_knob_label($knobSustain, get_engine_par_disp($ENGINE_PAR_SUSTAIN, $grp_idx, $env_idx, -1))
+
+    declare ui_knob $knobRelease(0, 1000000, 1)
+    set_text($knobRelease, "Release")
+    set_knob_unit($knobRelease, $KNOB_UNIT_MS)
+    $knobRelease := get_engine_par($ENGINE_PAR_RELEASE, $grp_idx, $env_idx, -1)
+    move_control_px($knobRelease, 350, 90)
+    set_knob_label($knobRelease, get_engine_par_disp($ENGINE_PAR_RELEASE, $grp_idx, $env_idx, -1))
+
+    { FILTER LFO }
+    declare ui_menu $menuFilterType
+    move_control_px($menuFilterType, 600, 40)
+    add_menu_item($menuFilterType, "LowPass2", 0)
+    add_menu_item($menuFilterType, "LowPass4", 1)
+    add_menu_item($menuFilterType, "BandPass2", 2)
+    add_menu_item($menuFilterType, "BandPass4", 3)
+    add_menu_item($menuFilterType, "HighPass2", 4)
+    add_menu_item($menuFilterType, "HighPass4", 5)
+
+    declare ui_button $btnLfoSin
+    $btnLfoSin := 1
+    set_text($btnLfoSin, "Sin")
+    move_control_px($btnLfoSin, 500, 40)
+    set_control_par(get_ui_id($btnLfoSin), $CONTROL_PAR_WIDTH, 30)
+    set_control_par(get_ui_id($btnLfoSin), $CONTROL_PAR_TEXT_ALIGNMENT, 1)
+
+    declare ui_button $btnLfoSquare
+    set_text($btnLfoSquare, "Sqr")
+    move_control_px($btnLfoSquare, 530, 40)
+    set_control_par(get_ui_id($btnLfoSquare), $CONTROL_PAR_WIDTH, 30)
+    set_control_par(get_ui_id($btnLfoSquare), $CONTROL_PAR_TEXT_ALIGNMENT, 1)
+
+    declare ui_button $btnLfoTri
+    set_text($btnLfoTri, "Tri")
+    move_control_px($btnLfoTri, 560, 40)
+    set_control_par(get_ui_id($btnLfoTri), $CONTROL_PAR_WIDTH, 30)
+    set_control_par(get_ui_id($btnLfoTri), $CONTROL_PAR_TEXT_ALIGNMENT, 1)
+
+    declare ui_knob $knobCutoff(0, 1000000, 1)
+    set_text($knobCutoff, "Cutoff")
+    set_knob_unit($knobCutoff, $KNOB_UNIT_HZ)
+    $knobCutoff := get_engine_par($ENGINE_PAR_CUTOFF, -1, 0, -1)
+    set_knob_label($knobCutoff, get_engine_par_disp($ENGINE_PAR_CUTOFF, -1, 0, -1))
+    move_control_px($knobCutoff, 500, 65)
+
+    declare ui_knob $knobResonance(0, 1000000, 1)
+    set_text($knobResonance, "Res")
+    set_knob_unit($knobResonance, $KNOB_UNIT_HZ)
+    $knobResonance := get_engine_par($ENGINE_PAR_RESONANCE, -1, 0, -1)
+    set_knob_label($knobResonance, get_engine_par_disp($ENGINE_PAR_RESONANCE, -1, 0, -1))
+    move_control_px($knobResonance, 600, 65)
+
+    declare ui_knob $knobLfoSpeed(0, 11, 1)
+    set_text($knobLfoSpeed, "Speed")
+    set_knob_label($knobLfoSpeed, !lfoSpeeds[0])
+    move_control_px($knobLfoSpeed, 500, 115)
+
+    declare ui_knob $knobLfoDepth(0, 1000000, 1)
+    set_text($knobLfoDepth, "Depth")
+    set_knob_unit($knobLfoDepth, $KNOB_UNIT_PERCENT)
+    move_control_px($knobLfoDepth, 600, 115)
+
+    { VOLUM/PITCH LFO }
+    declare ui_button $btnPitchLfoSin
+    set_text($btnPitchLfoSin, "Sin")
+    move_control_px($btnPitchLfoSin, 500, 200)
+    set_control_par(get_ui_id($btnPitchLfoSin), $CONTROL_PAR_WIDTH, 30)
+    set_control_par(get_ui_id($btnPitchLfoSin), $CONTROL_PAR_TEXT_ALIGNMENT, 1)
+    $btnPitchLfoSin := 1
+
+    declare ui_button $btnPitchLfoSquare
+    set_text($btnPitchLfoSquare, "Sqr")
+    move_control_px($btnPitchLfoSquare, 530, 200)
+    set_control_par(get_ui_id($btnPitchLfoSquare), $CONTROL_PAR_WIDTH, 30)
+    set_control_par(get_ui_id($btnPitchLfoSquare), $CONTROL_PAR_TEXT_ALIGNMENT, 1)
+
+    declare ui_button $btnPitchLfoTri
+    set_text($btnPitchLfoTri, "Tri")
+    move_control_px($btnPitchLfoTri, 560, 200)
+    set_control_par(get_ui_id($btnPitchLfoTri), $CONTROL_PAR_WIDTH, 30)
+    set_control_par(get_ui_id($btnPitchLfoTri), $CONTROL_PAR_TEXT_ALIGNMENT, 1)
+
+    declare ui_button $btnVolLfoSin
+    set_text($btnVolLfoSin, "Sin")
+    move_control_px($btnVolLfoSin, 500, 200)
+    set_control_par(get_ui_id($btnVolLfoSin), $CONTROL_PAR_WIDTH, 30)
+    set_control_par(get_ui_id($btnVolLfoSin), $CONTROL_PAR_TEXT_ALIGNMENT, 1)
+    $btnVolLfoSin := 1
+
+    declare ui_button $btnVolLfoSquare
+    set_text($btnVolLfoSquare, "Sqr")
+    move_control_px($btnVolLfoSquare, 530, 200)
+    set_control_par(get_ui_id($btnVolLfoSquare), $CONTROL_PAR_WIDTH, 30)
+    set_control_par(get_ui_id($btnVolLfoSquare), $CONTROL_PAR_TEXT_ALIGNMENT, 1)
+
+    declare ui_button $btnVolLfoTri
+    set_text($btnVolLfoTri, "Tri")
+    move_control_px($btnVolLfoTri, 560, 200)
+    set_control_par(get_ui_id($btnVolLfoTri), $CONTROL_PAR_WIDTH, 30)
+    set_control_par(get_ui_id($btnVolLfoTri), $CONTROL_PAR_TEXT_ALIGNMENT, 1)
+
+    declare ui_button $btnLFOVolume
+    set_text($btnLFOVolume, "Volume")
+    move_control_px($btnLFOVolume, 600, 200)
+    set_control_par(get_ui_id($btnLFOVolume), $CONTROL_PAR_WIDTH, 40)
+    set_control_par(get_ui_id($btnLFOVolume), $CONTROL_PAR_TEXT_ALIGNMENT, 1)
+    $btnLFOVolume := 1
+
+    declare ui_button $btnLFOPitch
+    set_text($btnLFOPitch, "Pitch")
+    move_control_px($btnLFOPitch, 640, 200)
+    set_control_par(get_ui_id($btnLFOPitch), $CONTROL_PAR_WIDTH, 40)
+    set_control_par(get_ui_id($btnLFOPitch), $CONTROL_PAR_TEXT_ALIGNMENT, 1)
+
+    declare ui_knob $knobPitchLFOSpeed(0, 11, 1)
+    set_text($knobPitchLFOSpeed, "Speed")
+    move_control_px($knobPitchLFOSpeed, 500, 225)
+
+    declare ui_knob $knobPitchLFODepth(0, 1000000, 1)
+    set_text($knobPitchLFODepth, "Depth")
+    set_knob_unit($knobPitchLFODepth, $KNOB_UNIT_PERCENT)
+    move_control_px($knobPitchLFODepth, 600, 225)
+
+    declare ui_knob $knobVolLFOSpeed(0, 11, 1)
+    set_text($knobVolLFOSpeed, "Speed")
+    move_control_px($knobVolLFOSpeed, 500, 225)
+
+    declare ui_knob $knobVolLFODepth(0, 1000000, 1)
+    set_text($knobVolLFODepth, "Depth")
+    set_knob_unit($knobVolLFODepth, $KNOB_UNIT_PERCENT)
+    move_control_px($knobVolLFODepth, 600, 225)
+
+    {STEP SEQUENCER}
+    declare ui_knob $stepDepthFilter(0, 1, 1)
+    move_control_px($stepDepthFilter, 110, 180)
+    set_text($stepDepthFilter, "ON/OFF")
+    set_knob_defval($stepDepthFilter, 0)
+    set_knob_label($stepDepthFilter, "OFF")
+    make_persistent($stepDepthFilter)
+
+    declare ui_knob $stepLength(0, 11, 1)
+    move_control_px($stepLength, 210, 180)
+    set_text($stepLength, "Step Length")
+    set_knob_defval($stepLength, 1)
+    make_persistent($stepLength)
+
+    declare ui_knob $numSteps(1, 32, 1)
+    move_control_px($numSteps, 310, 180)
+    set_text($numSteps, "Steps")
+    set_knob_defval($numSteps, 32)
+    make_persistent($numSteps)
+
+    declare ui_button $initSteps
+    set_text($initSteps, "CLEAR")
+    set_control_par(get_ui_id($initSteps), $CONTROL_PAR_WIDTH, 50)
+    set_control_par(get_ui_id($initSteps), $CONTROL_PAR_HEIGHT, 40)
+    set_control_par(get_ui_id($initSteps), $CONTROL_PAR_TEXT_ALIGNMENT, 1)
+    move_control_px($initSteps, 410, 180)
+
+    declare ui_table %stepsFilter[32](4, 4, 127)
+    move_control_px(%stepsFilter, 50, 230)
+    declare $stepsFilterID := get_ui_id(%stepsFilter)
+    set_control_par($stepsFilterID, $CONTROL_PAR_WIDTH, 410)
+    set_control_par($stepsFilterID, $CONTROL_PAR_HEIGHT, 100)
+    make_persistent(%stepsFilter)
+
+    declare ui_button $btnStepperFilter
+    set_text($btnStepperFilter, "Filter")
+    move_control_px($btnStepperFilter, 50, 180)
+    set_control_par(get_ui_id($btnStepperFilter), $CONTROL_PAR_WIDTH, 50)
+    set_control_par(get_ui_id($btnStepperFilter), $CONTROL_PAR_TEXT_ALIGNMENT, 1)
+    make_persistent($btnStepperFilter)
+    $btnStepperFilter := 1
+
+    declare ui_button $btnStepperVol
+    set_text($btnStepperVol, "Volume")
+    move_control_px($btnStepperVol, 50, 200)
+    set_control_par(get_ui_id($btnStepperVol), $CONTROL_PAR_WIDTH, 50)
+    set_control_par(get_ui_id($btnStepperVol), $CONTROL_PAR_TEXT_ALIGNMENT, 1)
+    make_persistent($btnStepperVol)
+
+    {--- INIT: Volume Step Sequencer ---}
+    declare ui_knob $stepDepthVol(0, 1, 1)
+    move_control_px($stepDepthVol, 110, 180)
+    set_text($stepDepthVol, "ON/OFF")
+    set_knob_defval($stepDepthVol, 0)
+    set_knob_label($stepDepthVol, "OFF")
+    make_persistent($stepDepthVol)
+    
+    declare ui_button $initVolSteps
+    set_text($initVolSteps, "CLEAR")
+    set_control_par(get_ui_id($initVolSteps), $CONTROL_PAR_WIDTH, 50)
+    set_control_par(get_ui_id($initVolSteps), $CONTROL_PAR_HEIGHT, 40)
+    set_control_par(get_ui_id($initVolSteps), $CONTROL_PAR_TEXT_ALIGNMENT, 1)
+    move_control_px($initVolSteps, 410, 180)
+
+    declare ui_knob $stepLengthVol(0, 8, 1)
+    move_control_px($stepLengthVol, 210, 180)
+    set_text($stepLengthVol, "Step Length")
+    set_knob_defval($stepLengthVol, 1)
+    make_persistent($stepLengthVol)
+
+    declare ui_knob $numStepsVol(1, 32, 1)
+    move_control_px($numStepsVol, 310, 180)
+    set_text($numStepsVol, "Steps")
+    set_knob_defval($numStepsVol, 32)
+    make_persistent($numStepsVol)
+
+    declare ui_table %stepsVol[32](4, 4, 127)
+    move_control_px(%stepsVol, 50, 230)
+    declare $stepsVolID := get_ui_id(%stepsVol)
+    set_control_par($stepsVolID, $CONTROL_PAR_WIDTH, 410)
+    set_control_par($stepsVolID, $CONTROL_PAR_HEIGHT, 100)
+    make_persistent(%stepsVol)
+    
+    {GLIDE}
+    declare ui_knob $knobGlide (0, 1000000, 1)
+    move_control_px($knobGlide, 500, 290)
+    set_knob_unit($knobGlide, $KNOB_UNIT_PERCENT)
+    set_text($knobGlide, "Glide")
+    set_knob_defval($knobGlide, 1000000)
+
+    {MAIN VOLUME}
+    declare ui_knob $mainVolume (0, 1000000, 1)
+    move_control_px($mainVolume, 600, 290)
+    set_knob_unit($mainVolume, $KNOB_UNIT_PERCENT)
+    set_text($mainVolume, "Volume")
+    set_knob_defval($mainVolume, 1000000)
+
+    {STEP SEQUENCER END}
+    set_control_par(get_ui_id($knobPitchLFOSpeed), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($knobPitchLFODepth), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($btnPitchLfoSin), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($btnPitchLfoSquare), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($btnPitchLfoTri), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+
+    {Alapból rejtsük el a Volume stepper UI-t}
+    set_control_par(get_ui_id($stepDepthVol), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($stepLengthVol), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($initVolSteps), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($numStepsVol), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id(%stepsVol), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+end on
+
+on ui_control($menuFilterType)
+    select($menuFilterType)
+        case 0
+            $async_id := set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, -1)
+            $async_id := set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_LP2POLE, -1, 0, -1)
+            wait_async($async_id)
+        case 1
+            $async_id := set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, -1)
+            $async_id := set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_LP4POLE, -1, 0, -1)
+            wait_async($async_id)
+        case 2
+            $async_id := set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, -1)
+            $async_id := set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_BP2POLE, -1, 0, -1)
+            wait_async($async_id)
+        case 3
+            $async_id := set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, -1)
+            $async_id := set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_BP4POLE, -1, 0, -1)
+            wait_async($async_id)
+        case 4
+            $async_id := set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, -1)
+            $async_id := set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_HP2POLE, -1, 0, -1)
+            wait_async($async_id)
+        case 5
+            $async_id := set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, -1)
+            $async_id := set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_HP4POLE, -1, 0, -1)
+            wait_async($async_id)
+    end select
+end on
+
+on async_complete
+    if ($NI_ASYNC_ID = $async_id and $NI_ASYNC_EXIT_STATUS = 1)
+        $async_id := -1
+    end if
+end on
+
+{FILTER LFO CONTROLS}
+on ui_control($knobCutoff)
+    set_engine_par($ENGINE_PAR_CUTOFF, $knobCutoff, -1, 0, -1)
+    set_knob_label($knobCutoff, get_engine_par_disp($ENGINE_PAR_CUTOFF, -1, 0, -1))
+end on
+
+on ui_control($knobResonance)
+    set_engine_par($ENGINE_PAR_RESONANCE, $knobResonance, -1, 0, -1)
+    set_knob_label($knobResonance, get_engine_par_disp($ENGINE_PAR_RESONANCE, -1, 0, -1))
+end on
+
+on ui_control($knobLfoDepth)
+    $depthPercentage := int(round(real($knobLfoDepth)/10000.0))
+    set_knob_label($knobLfoDepth, $depthPercentage)
+end on
+
+on ui_control($knobLfoSpeed)
+    set_knob_label($knobLfoSpeed, !lfoSpeeds[$knobLfoSpeed])
+end on
+
+on ui_control($btnLfoSin)
+    $lfoShape := 0
+
+    $btnLfoSin := 1
+    $btnLfoSquare := 0
+    $btnLfoTri := 0
+end on
+
+on ui_control($btnLfoSquare)
+    $lfoShape := 1
+
+    $btnLfoSin := 0
+    $btnLfoSquare := 1
+    $btnLfoTri := 0
+end on
+
+on ui_control($btnLfoTri)
+    $lfoShape := 2
+
+    $btnLfoSin := 0
+    $btnLfoSquare := 0
+    $btnLfoTri := 1
+end on
+
+{--- ADSR CONTROLS ---}
+on ui_control($knobAttack)
+    set_engine_par($ENGINE_PAR_ATTACK, $knobAttack, $grp_idx, $env_idx, -1)
+    set_knob_label($knobAttack, get_engine_par_disp($ENGINE_PAR_ATTACK, $grp_idx, $env_idx, -1))
+end on
+
+on ui_control($knobDecay)
+    set_engine_par($ENGINE_PAR_DECAY, $knobDecay, $grp_idx, $env_idx, -1)
+    set_knob_label($knobDecay, get_engine_par_disp($ENGINE_PAR_DECAY, $grp_idx, $env_idx, -1))
+end on
+
+on ui_control($knobSustain)
+    set_engine_par($ENGINE_PAR_SUSTAIN, $knobSustain, $grp_idx, $env_idx, -1)
+    set_knob_label($knobSustain, get_engine_par_disp($ENGINE_PAR_SUSTAIN, $grp_idx, $env_idx, -1))
+end on
+
+on ui_control($knobRelease)
+    set_engine_par($ENGINE_PAR_RELEASE, $knobRelease, $grp_idx, $env_idx, -1)
+    set_knob_label($knobRelease, get_engine_par_disp($ENGINE_PAR_RELEASE, $grp_idx, $env_idx, -1))
+end on
+
+{PITCH/VOL LFO CONTROLS}
+on ui_control($btnLFOVolume)
+    $btnLFOVolume := 1
+    $btnLFOPitch := 0
+    set_control_par(get_ui_id($knobPitchLFOSpeed), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($knobPitchLFODepth), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+
+    set_control_par(get_ui_id($knobVolLFOSpeed), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+    set_control_par(get_ui_id($knobVolLFODepth), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+
+    set_control_par(get_ui_id($btnPitchLfoSin), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($btnPitchLfoSquare), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($btnPitchLfoTri), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+
+    set_control_par(get_ui_id($btnVolLfoSin), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+    set_control_par(get_ui_id($btnVolLfoSquare), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+    set_control_par(get_ui_id($btnVolLfoTri), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+end on
+
+on ui_control($btnLFOPitch)
+    $btnLFOVolume := 0
+    $btnLFOPitch := 1
+    set_control_par(get_ui_id($knobPitchLFOSpeed), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+    set_control_par(get_ui_id($knobPitchLFODepth), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+
+    set_control_par(get_ui_id($knobVolLFOSpeed), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($knobVolLFODepth), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+
+    set_control_par(get_ui_id($btnPitchLfoSin), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+    set_control_par(get_ui_id($btnPitchLfoSquare), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+    set_control_par(get_ui_id($btnPitchLfoTri), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+
+    set_control_par(get_ui_id($btnVolLfoSin), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($btnVolLfoSquare), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($btnVolLfoTri), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+end on
+
+on ui_control($btnPitchLfoSin)
+    $btnPitchLfoSin := 1
+    $btnPitchLfoSquare := 0
+    $btnPitchLfoTri := 0
+    $pitchLFOShape := 0
+end on
+
+on ui_control($btnPitchLfoSquare)
+    $btnPitchLfoSin := 0
+    $btnPitchLfoSquare := 1
+    $btnPitchLfoTri := 0
+    $pitchLFOShape := 1
+end on
+
+on ui_control($btnPitchLfoTri)
+    $btnPitchLfoSin := 0
+    $btnPitchLfoSquare := 0
+    $btnPitchLfoTri := 1
+    $pitchLFOShape := 2
+end on
+
+
+on ui_control($btnVolLfoSin)
+    $btnVolLfoSin := 1
+    $btnVolLfoSquare := 0
+    $btnVolLfoTri := 0
+    $volLFOShape := 0
+end on
+
+on ui_control($btnVolLfoSquare)
+    $btnVolLfoSin := 0
+    $btnVolLfoSquare := 1
+    $btnVolLfoTri := 0
+    $volLFOShape := 1
+end on
+
+on ui_control($btnVolLfoTri)
+    $btnVolLfoSin := 0
+    $btnVolLfoSquare := 0
+    $btnVolLfoTri := 1
+    $volLFOShape := 2
+end on
+
+on ui_control($knobVolLFODepth)
+    ~volDepth := real($knobVolLFODepth)/10000.0
+    set_knob_label($knobVolLFODepth, int(~volDepth))
+end on
+
+on ui_control($knobPitchLFODepth)
+    set_knob_label($knobPitchLFODepth, int(real($knobPitchLFODepth)/10000.0))
+end on
+
+on ui_control($numSteps)
+    set_table_steps_shown(%stepsFilter, $numSteps)
+end on
+
+on ui_control($numStepsVol)
+    set_table_steps_shown(%stepsVol, $numStepsVol)
+end on
+
+{--- STEP SEQUENCER BUTTON LOGIC ---}
+on ui_control($btnStepperFilter)
+    $btnStepperFilter := 1
+    $btnStepperVol := 0
+
+    {Mutassuk a Filter vezérlőket}
+    set_control_par(get_ui_id($stepDepthFilter), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+    set_control_par(get_ui_id($stepLength), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+    set_control_par(get_ui_id($numSteps), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+    set_control_par(get_ui_id(%stepsFilter), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+    set_control_par(get_ui_id($initSteps), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+
+    {Rejtsük el a Volume vezérlőket}
+    set_control_par(get_ui_id($stepDepthVol), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($stepLengthVol), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($numStepsVol), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id(%stepsVol), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($initVolSteps), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+end on
+
+on ui_control($btnStepperVol)
+    $btnStepperFilter := 0
+    $btnStepperVol := 1
+
+    {Mutassuk a Volume vezérlőket}
+    set_control_par(get_ui_id($stepDepthVol), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+    set_control_par(get_ui_id($stepLengthVol), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+    set_control_par(get_ui_id($numStepsVol), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+    set_control_par(get_ui_id(%stepsVol), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+    set_control_par(get_ui_id($initVolSteps), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+
+    {Rejtsük el a Filter vezérlőket}
+    set_control_par(get_ui_id($stepDepthFilter), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($stepLength), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($numSteps), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id(%stepsFilter), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($initSteps), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+end on
+
+on ui_control($initSteps)
+    $initSteps := 0
+    $i := 0
+
+    while($i < 32)
+        %stepsFilter[$i] := 0
+        $i := $i + 1
+    end while
+end on
+
+on ui_control($initVolSteps)
+    $initVolSteps := 0
+    $i := 0
+
+    while($i < 32)
+        %stepsVol[$i] := 0
+        $i := $i + 1
+    end while
+end on
+
+on ui_control($stepDepthFilter)
+    if ($stepDepthFilter = 0)
+        set_knob_label($stepDepthFilter, "OFF")
+    else
+        set_knob_label($stepDepthFilter, "ON")
+    end if
+end on
+
+on ui_control($stepDepthVol)
+    if ($stepDepthVol = 0)
+        set_knob_label($stepDepthVol, "OFF")
+    else
+        set_knob_label($stepDepthVol, "ON")
+    end if
+end on
+
+on note
+    allow_group($menuPresets)
+    $noteId := $EVENT_ID
+    $lastTime := $ENGINE_UPTIME
+    ~phase := 0.0
+    ~pitchPhase := 0.0
+    ~volPhase := 0.0
+    $counter := 0
+    $iterations := 0
+    $filterStepCounter := 0
+    $noteOn := 1
+
+    while ($EVENT_NOTE > 0 and $noteOn = 1)
+        $now := $ENGINE_UPTIME
+        $delta := $now - $lastTime
+        $lastTime := $now
+        ~lfoDepth := real($knobLfoDepth)/1000000.0
+        $maximumDepth := 1000000 - $knobCutoff
+        $currentDepth := $knobLfoDepth
+        $iterations := $iterations + 1
+
+        if ($currentDepth > $maximumDepth)
+            $currentDepth := $maximumDepth
+        end if
+
+        ~bpm := real(ms_to_ticks(60000000)) / 960.0
+        ~msPerBeat := 60000.0 / ~bpm
+
+        select ($knobLfoSpeed)
+            case 0
+                ~periodMs := ~msPerBeat * 2.0
+            case 1
+                ~periodMs := ~msPerBeat
+            case 2
+                ~periodMs := ~msPerBeat / 2.0
+            case 3
+                ~periodMs := ~msPerBeat / 4.0
+            case 4
+                ~periodMs := ~msPerBeat / 8.0
+            case 5
+                ~periodMs := ~msPerBeat / 1.5
+            case 6
+                ~periodMs := ~msPerBeat / 3.0
+            case 7
+                ~periodMs := ~msPerBeat / 6.0
+        end select
+
+        ~phase := ~phase + (real($delta) / ~periodMs)
+        if (~phase > 1.0)
+            ~phase := ~phase - 1.0
+        end if
+
+        { --- Hullámforma kiválasztás --- }
+        select ($lfoShape)
+            case 0  { Sine }
+                ~lfoValue := sin(~phase * 2.0 * ~pi)
+
+            case 2  { Triangle }
+                if (~phase < 0.25)
+                    ~lfoValue := ~phase * 4.0
+                else
+                    if (~phase < 0.75)
+                        ~lfoValue := 2.0 - (~phase * 4.0)
+                    else
+                        ~lfoValue := (~phase * 4.0) - 4.0
+                    end if
+                end if
+
+            case 1  { Square }
+                if (~phase < 0.5)
+                    ~lfoValue := 1.0
+                else
+                    ~lfoValue := -1.0
+                end if
+        end select
+
+        ~cutoff := real($knobCutoff) + (real($currentDepth) * ~lfoValue)
+        set_engine_par($ENGINE_PAR_CUTOFF, int(~cutoff), -1, 0, -1)
+
+        {PITCH LFO}
+
+        $pitchNow := $ENGINE_UPTIME
+        $pitchDelta := $pitchNow - $pitchLastTime
+        $pitchLastTime := $pitchNow
+        ~pitchMsPerBeat := 60000.0 / ~bpm
+
+        select ($knobPitchLFOSpeed)
+            case 0
+                ~pitchPeriodMs := ~pitchMsPerBeat * 2.0
+            case 1
+                ~pitchPeriodMs := ~pitchMsPerBeat
+            case 2
+                ~pitchPeriodMs := ~pitchMsPerBeat / 2.0
+            case 3
+                ~pitchPeriodMs := ~pitchMsPerBeat / 4.0
+            case 4
+                ~pitchPeriodMs := ~pitchMsPerBeat / 8.0
+            case 5
+                ~pitchPeriodMs := ~pitchMsPerBeat / 1.5
+            case 6
+                ~pitchPeriodMs := ~pitchMsPerBeat / 3.0
+            case 7
+                ~pitchPeriodMs := ~pitchMsPerBeat / 6.0
+        end select
+
+        ~pitchPhase := ~pitchPhase + (real($pitchDelta) / ~pitchPeriodMs)
+        
+        if (~pitchPhase > 1.0)
+            ~pitchPhase := ~pitchPhase - 1.0
+        end if
+
+        { --- Shape --- }
+        select ($pitchLFOShape)
+            case 0  { Sine }
+                ~pitchValue := sin(~pitchPhase * 2.0 * ~pi)
+
+            case 1  { Square }
+                if (~pitchPhase < 0.5)
+                    ~pitchValue := 1.0
+                else
+                    ~pitchValue := -1.0
+                end if
+
+            case 2  { Triangle }
+                if (~pitchPhase < 0.25)
+                    ~pitchValue := ~pitchPhase * 4.0
+                else
+                    if (~pitchPhase < 0.75)
+                        ~pitchValue := 2.0 - (~pitchPhase * 4.0)
+                    else
+                        ~pitchValue := (~pitchPhase * 4.0) - 4.0
+                    end if
+                end if
+        end select
+
+        { 100000 mc = 100 cent = 1 félhang }
+        change_tune($noteId, int(real($knobPitchLfoDepth) * ~pitchValue), 0)
+
+        {VOLUME LFO}
+        $volNow := $ENGINE_UPTIME
+        $volDelta := $volNow - $volLastTime
+        $volLastTime := $volNow
+        ~volMsPerBeat := 60000.0 / ~bpm
+
+        select ($knobVolLFOSpeed)
+            case 0
+                ~volPeriodMs := ~volMsPerBeat * 2.0
+            case 1
+                ~volPeriodMs := ~volMsPerBeat
+            case 2
+                ~volPeriodMs := ~volMsPerBeat / 2.0
+            case 3
+                ~volPeriodMs := ~volMsPerBeat / 4.0
+            case 4
+                ~volPeriodMs := ~volMsPerBeat / 8.0
+            case 5
+                ~volPeriodMs := ~volMsPerBeat / 1.5
+            case 6
+                ~volPeriodMs := ~volMsPerBeat / 3.0
+            case 7
+                ~volPeriodMs := ~volMsPerBeat / 6.0
+        end select
+
+        ~volPhase := ~volPhase + (real($volDelta) / ~volPeriodMs)
+
+        if (~volPhase > 1.0)
+            ~volPhase := ~volPhase - 1.0
+        end if
+
+        select ($volLFOShape)
+            case 0  { Sine }
+                ~volValue := sin(~volPhase * 2.0 * ~pi)
+
+            case 1  { Square }
+                if (~volPhase < 0.5)
+                    ~volValue := 1.0
+                else
+                    ~volValue := -1.0
+                end if
+
+            case 2  { Triangle }
+                if (~volPhase < 0.25)
+                    ~volValue := ~volValue * 4.0
+                else
+                    if (~volPhase < 0.75)
+                        ~volValue := 2.0 - (~volPhase * 4.0)
+                    else
+                        ~volValue := (~volPhase * 4.0) - 4.0
+                    end if
+                end if
+        end select
+
+        change_vol($noteId, int(~volDepth*100.0 * ~volValue), 0)
+
+        $bpmMs := int(60.0/~bpm * 1000.0)
+
+        select ($stepLength)
+            case 0
+                $bpmMs := int(real($bpmMs) * 32.0)
+            case 1
+                $bpmMs := int(real($bpmMs) * 16.0)
+            case 2
+                $bpmMs := int(real($bpmMs) * 8.0)
+            case 3
+                $bpmMs := int(real($bpmMs) * 4.0)
+            case 3
+                $bpmMs := int(real($bpmMs) * 2.0)
+            case 5
+                $bpmMs := $bpmMs
+            case 6
+                $bpmMs := int(real($bpmMs) / 2.0)
+            case 7
+                $bpmMs := int(real($bpmMs) / 4.0)
+            case 8
+                $bpmMs := int(real($bpmMs) / 8.0)
+            case 9
+                $bpmMs := int(real($bpmMs) / 1.5)
+            case 10
+                $bpmMs := int(real($bpmMs) / 3.0)
+            case 11
+                $bpmMs := int(real($bpmMs) / 6.0)
+        end select
+
+        $iterations := $iterations + 1000
+
+        if ($iterations >= $bpmMs * 1000)
+            $iterations := 0
+            $filterStepCounter := $filterStepCounter + 1
+        end if
+
+        if($filterStepCounter mod $numSteps = 0)
+            $filterStepCounter := 0
+        end if
+
+        $scaledCutoff := (%stepsFilter[$filterStepCounter] * 1000000) / 127
+        set_engine_par($ENGINE_PAR_CUTOFF, $scaledCutoff, -1, 0, -1)
+
+        wait(1000)
+    end while
+end on
+
+on release
+    $noteOn := 0
+end on

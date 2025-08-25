@@ -1,0 +1,4 @@
+- filter on és volume on gombok kellenének még
+- legyen 4/1, 2/1, stb... több lfo és stepper speed
+- legyenek állítható filter típusok
+    (csak a csatornát kell állítani)
