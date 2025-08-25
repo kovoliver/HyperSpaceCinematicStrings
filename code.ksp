@@ -354,42 +354,43 @@ end on
 on ui_control($menuFilterType)
     select($menuFilterType)
         case 0
-            $async_id := set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, -1)
-            $async_id := set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_LP2POLE, -1, 0, -1)
-            wait_async($async_id)
+            wait_async(set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, 1))
+            wait_async(set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_LP2POLE, -1, 0, 1))
         case 1
-            $async_id := set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, -1)
-            $async_id := set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_LP4POLE, -1, 0, -1)
-            wait_async($async_id)
+            wait_async(set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, 1))
+            wait_async(set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_LP4POLE, -1, 0, 1))
         case 2
-            $async_id := set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, -1)
-            $async_id := set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_BP2POLE, -1, 0, -1)
-            wait_async($async_id)
+            wait_async(set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, 1))
+            wait_async(set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_BP2POLE, -1, 0, 1))
         case 3
-            $async_id := set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, -1)
-            $async_id := set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_BP4POLE, -1, 0, -1)
-            wait_async($async_id)
+            wait_async(set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, 1))
+            wait_async(set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_BP4POLE, -1, 0, 1))
         case 4
-            $async_id := set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, -1)
-            $async_id := set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_HP2POLE, -1, 0, -1)
-            wait_async($async_id)
+            wait_async(set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, 1))
+            wait_async(set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_HP2POLE, -1, 0, 1))
         case 5
-            $async_id := set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, -1)
-            $async_id := set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_HP4POLE, -1, 0, -1)
-            wait_async($async_id)
+            wait_async(set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, 1))
+            wait_async(set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_HP4POLE, -1, 0, 1))
     end select
+
+    set_engine_par($ENGINE_PAR_CUTOFF, $knobCutoff, -1, 0, 1)
+    set_knob_label($knobCutoff, get_engine_par_disp($ENGINE_PAR_CUTOFF, -1, 0, 1))
 end on
 
 on async_complete
     if ($NI_ASYNC_ID = $async_id and $NI_ASYNC_EXIT_STATUS = 1)
+        message($async_id)
         $async_id := -1
+
+        set_engine_par($ENGINE_PAR_CUTOFF, $knobCutoff, -1, 0, -1)
+        set_knob_label($knobCutoff, get_engine_par_disp($ENGINE_PAR_CUTOFF, -1, 0, -1))
     end if
 end on
 
 {FILTER LFO CONTROLS}
 on ui_control($knobCutoff)
-    set_engine_par($ENGINE_PAR_CUTOFF, $knobCutoff, -1, 0, -1)
-    set_knob_label($knobCutoff, get_engine_par_disp($ENGINE_PAR_CUTOFF, -1, 0, -1))
+    set_engine_par($ENGINE_PAR_CUTOFF, $knobCutoff, -1, 0, 1)
+    set_knob_label($knobCutoff, get_engine_par_disp($ENGINE_PAR_CUTOFF, -1, 0, 1))
 end on
 
 on ui_control($knobResonance)
@@ -857,8 +858,8 @@ on note
             $filterStepCounter := 0
         end if
 
-        $scaledCutoff := (%stepsFilter[$filterStepCounter] * 1000000) / 127
-        set_engine_par($ENGINE_PAR_CUTOFF, $scaledCutoff, -1, 0, -1)
+        {$scaledCutoff := (%stepsFilter[$filterStepCounter] * 1000000) / 127}
+        {set_engine_par($ENGINE_PAR_CUTOFF, $scaledCutoff, -1, 0, -1)}
 
         wait(1000)
     end while
