@@ -85,7 +85,6 @@ on init
 
     { ADSR }
     $grp_idx := 0
-    {$env_idx := find_mod($grp_idx, "ENV_VOL")}
     $env_idx := 0
 
     declare ui_knob $knobAttack(0, 1000000, 1)
@@ -240,12 +239,22 @@ on init
     move_control_px($knobVolLFODepth, 600, 225)
 
     {STEP SEQUENCER}
-    declare ui_knob $stepDepthFilter(0, 1, 1)
-    move_control_px($stepDepthFilter, 110, 180)
-    set_text($stepDepthFilter, "ON/OFF")
-    set_knob_defval($stepDepthFilter, 0)
-    set_knob_label($stepDepthFilter, "OFF")
-    make_persistent($stepDepthFilter)
+
+    declare ui_menu $menuFilterTypeStep
+    move_control_px($menuFilterTypeStep, 110, 200)
+    add_menu_item($menuFilterTypeStep, "LowPass2", 0)
+    add_menu_item($menuFilterTypeStep, "LowPass4", 1)
+    add_menu_item($menuFilterTypeStep, "BandPass2", 2)
+    add_menu_item($menuFilterTypeStep, "BandPass4", 3)
+    add_menu_item($menuFilterTypeStep, "HighPass2", 4)
+    add_menu_item($menuFilterTypeStep, "HighPass4", 5)
+    set_engine_par($ENGINE_PAR_EFFECT_BYPASS, 1, -1, 1, -1)
+
+    declare ui_button $stepFilterOnOff
+    move_control_px($stepFilterOnOff, 110, 180)
+    set_text($stepFilterOnOff, "OFF")
+    make_persistent($stepFilterOnOff)
+    $stepFilterOnOff := 0
 
     declare ui_knob $stepLength(0, 11, 1)
     move_control_px($stepLength, 210, 180)
@@ -289,12 +298,10 @@ on init
     make_persistent($btnStepperVol)
 
     {--- INIT: Volume Step Sequencer ---}
-    declare ui_knob $stepDepthVol(0, 1, 1)
-    move_control_px($stepDepthVol, 110, 180)
-    set_text($stepDepthVol, "ON/OFF")
-    set_knob_defval($stepDepthVol, 0)
-    set_knob_label($stepDepthVol, "OFF")
-    make_persistent($stepDepthVol)
+    declare ui_button $stepVolOnOff
+    move_control_px($stepVolOnOff, 110, 180)
+    set_text($stepVolOnOff, "OFF")
+    make_persistent($stepVolOnOff)
     
     declare ui_button $initVolSteps
     set_text($initVolSteps, "CLEAR")
@@ -344,33 +351,41 @@ on init
     set_control_par(get_ui_id($btnPitchLfoTri), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
 
     {Alapból rejtsük el a Volume stepper UI-t}
-    set_control_par(get_ui_id($stepDepthVol), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($stepVolOnOff), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
     set_control_par(get_ui_id($stepLengthVol), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
     set_control_par(get_ui_id($initVolSteps), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
     set_control_par(get_ui_id($numStepsVol), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
     set_control_par(get_ui_id(%stepsVol), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+
+    $i := 1
+
+    while($i < 7)
+        set_engine_par($ENGINE_PAR_EFFECT_BYPASS, 1, -1, $i, 1)
+        $i := $i + 1
+    end while
 end on
 
+{LFO FILTER TYPE}
 on ui_control($menuFilterType)
     select($menuFilterType)
         case 0
-            wait_async(set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, 1))
-            wait_async(set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_LP2POLE, -1, 0, 1))
+            set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, 1)
+            set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_LP2POLE, -1, 0, 1)
         case 1
-            wait_async(set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, 1))
-            wait_async(set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_LP4POLE, -1, 0, 1))
+            set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, 1)
+            set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_LP4POLE, -1, 0, 1)
         case 2
-            wait_async(set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, 1))
-            wait_async(set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_BP2POLE, -1, 0, 1))
+            set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, 1)
+            set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_BP2POLE, -1, 0, 1)
         case 3
-            wait_async(set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, 1))
-            wait_async(set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_BP4POLE, -1, 0, 1))
+            set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, 1)
+            set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_BP4POLE, -1, 0, 1)
         case 4
-            wait_async(set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, 1))
-            wait_async(set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_HP2POLE, -1, 0, 1))
+            set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, 1)
+            set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_HP2POLE, -1, 0, 1)
         case 5
-            wait_async(set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, 1))
-            wait_async(set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_HP4POLE, -1, 0, 1))
+            set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, 0, 1)
+            set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_HP4POLE, -1, 0, 1)
     end select
 
     set_engine_par($ENGINE_PAR_CUTOFF, $knobCutoff, -1, 0, 1)
@@ -379,11 +394,54 @@ end on
 
 on async_complete
     if ($NI_ASYNC_ID = $async_id and $NI_ASYNC_EXIT_STATUS = 1)
-        message($async_id)
         $async_id := -1
 
         set_engine_par($ENGINE_PAR_CUTOFF, $knobCutoff, -1, 0, -1)
         set_knob_label($knobCutoff, get_engine_par_disp($ENGINE_PAR_CUTOFF, -1, 0, -1))
+    end if
+end on
+
+{STEP SEQUENCER FILTER TYPE}
+on ui_control($menuFilterTypeStep)
+    $i := 1
+
+    while($i < 7)
+        if($menuFilterTypeStep + 1 = $i)
+            set_engine_par($ENGINE_PAR_EFFECT_BYPASS, 0, -1, $i, 1)
+        else
+            set_engine_par($ENGINE_PAR_EFFECT_BYPASS, 1, -1, $i, 1)
+        end if
+        
+        $i := $i + 1
+    end while
+end on
+
+{
+    set_engine_par($ENGINE_PAR_EFFECT_TYPE, $EFFECT_TYPE_FILTER, -1, $i + 1, 1)
+    set_engine_par($ENGINE_PAR_EFFECT_SUBTYPE, $FILTER_TYPE_LP2POLE, -1, $i + 1, 1)
+}
+
+on ui_control($stepFilterOnOff)
+    $i := 1
+
+    if ($stepFilterOnOff = 0)
+        set_text($stepFilterOnOff, "OFF")
+
+        while($i < 7)
+            set_engine_par($ENGINE_PAR_EFFECT_BYPASS, 1, -1, $i, 1)
+            $i := $i + 1
+        end while
+    else
+        set_text($stepFilterOnOff, "ON")
+        while($i < 7)
+            if($menuFilterTypeStep + 1 = $i)
+                set_engine_par($ENGINE_PAR_EFFECT_BYPASS, 0, -1, $i, 1)
+            else
+                set_engine_par($ENGINE_PAR_EFFECT_BYPASS, 1, -1, $i, -1)
+            end if
+
+            $i := $i + 1
+        end while
     end if
 end on
 
@@ -433,23 +491,23 @@ end on
 
 {--- ADSR CONTROLS ---}
 on ui_control($knobAttack)
-    set_engine_par($ENGINE_PAR_ATTACK, $knobAttack, $grp_idx, $env_idx, -1)
-    set_knob_label($knobAttack, get_engine_par_disp($ENGINE_PAR_ATTACK, $grp_idx, $env_idx, -1))
+    set_engine_par($ENGINE_PAR_ATTACK, $knobAttack, $menuPresets, $env_idx, -1)
+    set_knob_label($knobAttack, get_engine_par_disp($ENGINE_PAR_ATTACK, $menuPresets, $env_idx, -1))
 end on
 
 on ui_control($knobDecay)
-    set_engine_par($ENGINE_PAR_DECAY, $knobDecay, $grp_idx, $env_idx, -1)
-    set_knob_label($knobDecay, get_engine_par_disp($ENGINE_PAR_DECAY, $grp_idx, $env_idx, -1))
+    set_engine_par($ENGINE_PAR_DECAY, $knobDecay, $menuPresets, $env_idx, -1)
+    set_knob_label($knobDecay, get_engine_par_disp($ENGINE_PAR_DECAY, $menuPresets, $env_idx, -1))
 end on
 
 on ui_control($knobSustain)
-    set_engine_par($ENGINE_PAR_SUSTAIN, $knobSustain, $grp_idx, $env_idx, -1)
-    set_knob_label($knobSustain, get_engine_par_disp($ENGINE_PAR_SUSTAIN, $grp_idx, $env_idx, -1))
+    set_engine_par($ENGINE_PAR_SUSTAIN, $knobSustain, $menuPresets, $env_idx, -1)
+    set_knob_label($knobSustain, get_engine_par_disp($ENGINE_PAR_SUSTAIN, $menuPresets, $env_idx, -1))
 end on
 
 on ui_control($knobRelease)
-    set_engine_par($ENGINE_PAR_RELEASE, $knobRelease, $grp_idx, $env_idx, -1)
-    set_knob_label($knobRelease, get_engine_par_disp($ENGINE_PAR_RELEASE, $grp_idx, $env_idx, -1))
+    set_engine_par($ENGINE_PAR_RELEASE, $knobRelease, $menuPresets, $env_idx, -1)
+    set_knob_label($knobRelease, get_engine_par_disp($ENGINE_PAR_RELEASE, $menuPresets, $env_idx, -1))
 end on
 
 {PITCH/VOL LFO CONTROLS}
@@ -555,14 +613,15 @@ on ui_control($btnStepperFilter)
     $btnStepperVol := 0
 
     {Mutassuk a Filter vezérlőket}
-    set_control_par(get_ui_id($stepDepthFilter), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+    set_control_par(get_ui_id($stepFilterOnOff), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
     set_control_par(get_ui_id($stepLength), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
     set_control_par(get_ui_id($numSteps), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
     set_control_par(get_ui_id(%stepsFilter), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
     set_control_par(get_ui_id($initSteps), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+    set_control_par(get_ui_id($menuFilterTypeStep), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
 
     {Rejtsük el a Volume vezérlőket}
-    set_control_par(get_ui_id($stepDepthVol), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($stepVolOnOff), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
     set_control_par(get_ui_id($stepLengthVol), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
     set_control_par(get_ui_id($numStepsVol), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
     set_control_par(get_ui_id(%stepsVol), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
@@ -574,14 +633,15 @@ on ui_control($btnStepperVol)
     $btnStepperVol := 1
 
     {Mutassuk a Volume vezérlőket}
-    set_control_par(get_ui_id($stepDepthVol), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
+    set_control_par(get_ui_id($stepVolOnOff), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
     set_control_par(get_ui_id($stepLengthVol), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
     set_control_par(get_ui_id($numStepsVol), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
     set_control_par(get_ui_id(%stepsVol), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
     set_control_par(get_ui_id($initVolSteps), $CONTROL_PAR_HIDE, $HIDE_PART_NOTHING)
 
     {Rejtsük el a Filter vezérlőket}
-    set_control_par(get_ui_id($stepDepthFilter), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($stepFilterOnOff), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
+    set_control_par(get_ui_id($menuFilterTypeStep), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
     set_control_par(get_ui_id($stepLength), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
     set_control_par(get_ui_id($numSteps), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
     set_control_par(get_ui_id(%stepsFilter), $CONTROL_PAR_HIDE, $HIDE_WHOLE_CONTROL)
@@ -608,23 +668,16 @@ on ui_control($initVolSteps)
     end while
 end on
 
-on ui_control($stepDepthFilter)
-    if ($stepDepthFilter = 0)
-        set_knob_label($stepDepthFilter, "OFF")
+on ui_control($stepVolOnOff)
+    if ($stepVolOnOff = 0)
+        set_text($stepVolOnOff, "OFF")
     else
-        set_knob_label($stepDepthFilter, "ON")
-    end if
-end on
-
-on ui_control($stepDepthVol)
-    if ($stepDepthVol = 0)
-        set_knob_label($stepDepthVol, "OFF")
-    else
-        set_knob_label($stepDepthVol, "ON")
+        set_text($stepVolOnOff, "ON")
     end if
 end on
 
 on note
+    disallow_group($ALL_GROUPS)
     allow_group($menuPresets)
     $noteId := $EVENT_ID
     $lastTime := $ENGINE_UPTIME
@@ -700,8 +753,10 @@ on note
                 end if
         end select
 
-        ~cutoff := real($knobCutoff) + (real($currentDepth) * ~lfoValue)
-        set_engine_par($ENGINE_PAR_CUTOFF, int(~cutoff), -1, 0, -1)
+        if ($knobLfoDepth > 0)
+            ~cutoff := real($knobCutoff) + (real($currentDepth) * ~lfoValue)
+            set_engine_par($ENGINE_PAR_CUTOFF, int(~cutoff), -1, 0, -1)
+        end if
 
         {PITCH LFO}
 
@@ -829,7 +884,7 @@ on note
                 $bpmMs := int(real($bpmMs) * 8.0)
             case 3
                 $bpmMs := int(real($bpmMs) * 4.0)
-            case 3
+            case 4
                 $bpmMs := int(real($bpmMs) * 2.0)
             case 5
                 $bpmMs := $bpmMs
@@ -858,8 +913,8 @@ on note
             $filterStepCounter := 0
         end if
 
-        {$scaledCutoff := (%stepsFilter[$filterStepCounter] * 1000000) / 127}
-        {set_engine_par($ENGINE_PAR_CUTOFF, $scaledCutoff, -1, 0, -1)}
+        $scaledCutoff := (%stepsFilter[$filterStepCounter] * 1000000) / 127
+        set_engine_par($ENGINE_PAR_CUTOFF, $scaledCutoff, -1, $menuFilterTypeStep + 1, 1)
 
         wait(1000)
     end while
